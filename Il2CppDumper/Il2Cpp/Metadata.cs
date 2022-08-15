@@ -42,6 +42,7 @@ namespace Il2CppDumper
 
         public Metadata(Stream stream) : base(stream)
         {
+            stream.Seek(0, SeekOrigin.Begin);
             var sanity = ReadUInt32();
             if (sanity != 0xFAB11BAF)
             {
@@ -63,6 +64,11 @@ namespace Il2CppDumper
                 if (header.stringLiteralOffset == 264)
                 {
                     Version = 24.2;
+                    header = ReadClass<Il2CppGlobalMetadataHeader>(0);
+                }
+                else if (header.stringLiteralDataOffset == 344) // hk4e metadata
+                {
+                    Version = 24.7; // range (24.6)..(24.999)
                     header = ReadClass<Il2CppGlobalMetadataHeader>(0);
                 }
                 else
@@ -220,15 +226,24 @@ namespace Il2CppDumper
             {
                 metadataUsageDic[(Il2CppMetadataUsage)i] = new SortedDictionary<uint, uint>();
             }
+            if (metadataUsageLists.Length == 0)
+            {
+                foreach (var metadataUsagePair in metadataUsagePairs)
+                {
+                    var usage = GetEncodedIndexType(metadataUsagePair.encodedSourceIndex);
+                    var decodedIndex = GetDecodedMethodIndex(metadataUsagePair.encodedSourceIndex);
+                    metadataUsageDic[(Il2CppMetadataUsage)usage][metadataUsagePair.destinationIndex] = decodedIndex;
+                }
+                metadataUsagesCount = metadataUsagePairs.Length;
+                return;
+            }
             foreach (var metadataUsageList in metadataUsageLists)
             {
                 for (int i = 0; i < metadataUsageList.count; i++)
                 {
                     var offset = metadataUsageList.start + i;
                     if (offset >= metadataUsagePairs.Length)
-                    {
                         continue;
-                    }
                     var metadataUsagePair = metadataUsagePairs[offset];
                     var usage = GetEncodedIndexType(metadataUsagePair.encodedSourceIndex);
                     var decodedIndex = GetDecodedMethodIndex(metadataUsagePair.encodedSourceIndex);
@@ -258,10 +273,14 @@ namespace Il2CppDumper
             var size = 0;
             foreach (var i in type.GetFields())
             {
-                var attr = (VersionAttribute)Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
-                if (attr != null)
+                var attrs = (VersionAttribute[])Attribute.GetCustomAttributes(i, typeof(VersionAttribute));
+                if (attrs != null && attrs.Length > 0)
                 {
-                    if (Version < attr.Min || Version > attr.Max)
+                    bool skip = true;
+                    foreach (var attr in attrs)
+                        if (!(Version < attr.Min || Version > attr.Max))
+                            skip = false;
+                    if (skip)
                         continue;
                 }
                 var fieldType = i.FieldType;

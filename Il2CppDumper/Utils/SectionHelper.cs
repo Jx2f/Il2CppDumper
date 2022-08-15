@@ -389,5 +389,35 @@ namespace Il2CppDumper
             }
             return 0ul;
         }
+
+        // ref: https://github.com/1582421598/Il2CppDumper-Genshin
+        public ulong FindGenshinAddress(int stringLiteralsCount)
+        {
+            foreach (var section in data)
+            {
+                il2Cpp.Position = section.offset;
+                while (il2Cpp.Position < section.offsetEnd - il2Cpp.PointerSize)
+                {
+                    var addr = il2Cpp.Position;
+                    if (il2Cpp.ReadIntPtr() == stringLiteralsCount)
+                    {
+                        try
+                        {
+                            var pointer = il2Cpp.MapVATR(il2Cpp.ReadUIntPtr());
+                            if (CheckPointerRangeDataRa(pointer))
+                            {
+                                return addr - il2Cpp.PointerSize * 6 - section.offset + section.address;
+                            }
+                        }
+                        catch
+                        {
+                            // ignored
+                        }
+                    }
+                    il2Cpp.Position = addr + il2Cpp.PointerSize;
+                }
+            }
+            return 0ul;
+        }
     }
 }

@@ -339,6 +339,34 @@ namespace Il2CppDumper
                     }
                 }
             }
+            // ref: https://github.com/1582421598/Il2CppDumper-Genshin
+            else if (il2Cpp.Version > 24.5 && il2Cpp.Version < 26) // hk4e metadata
+            {
+                var sectionHelper = executor.GetSectionHelper();
+                il2Cpp.Position = il2Cpp.MapVATR(sectionHelper.FindGenshinAddress(metadata.stringLiterals.Length));
+                il2Cpp.Position += il2Cpp.PointerSize;
+                ulong typeInfoAddress = il2Cpp.ReadUIntPtr();
+                il2Cpp.Position += il2Cpp.PointerSize;
+                ulong methodDefOrRefAddress = il2Cpp.ReadUIntPtr();
+                il2Cpp.Position += il2Cpp.PointerSize;
+                ulong fieldInfoAddress = il2Cpp.ReadUIntPtr();
+                il2Cpp.Position += il2Cpp.PointerSize;
+                ulong stringLiteralAddress = il2Cpp.ReadUIntPtr();
+                foreach (var i in metadata.metadataUsageDic[Il2CppMetadataUsage.kIl2CppMetadataUsageTypeInfo])
+                    AddMetadataUsageTypeInfo(json, i.Value, typeInfoAddress + i.Key * 8);
+                if (metadata.metadataUsageDic[Il2CppMetadataUsage.kIl2CppMetadataUsageIl2CppType].Count > 0)
+                    Console.WriteLine("Shouldn't execute to here.");
+                // foreach (var i in metadata.metadataUsageDic[Il2CppMetadataUsage.kIl2CppMetadataUsageIl2CppType])
+                //     AddMetadataUsageIl2CppType(json, i.Value, il2Cpp.metadataUsages[i.Key]);
+                foreach (var i in metadata.metadataUsageDic[Il2CppMetadataUsage.kIl2CppMetadataUsageMethodDef])
+                    AddMetadataUsageMethodDef(json, i.Value, methodDefOrRefAddress + i.Key * 8);
+                foreach (var i in metadata.metadataUsageDic[Il2CppMetadataUsage.kIl2CppMetadataUsageFieldInfo])
+                    AddMetadataUsageFieldInfo(json, i.Value, fieldInfoAddress + i.Key * 8);
+                foreach (var i in metadata.metadataUsageDic[Il2CppMetadataUsage.kIl2CppMetadataUsageStringLiteral])
+                    AddMetadataUsageStringLiteral(json, i.Value, stringLiteralAddress + i.Key * 8);
+                foreach (var i in metadata.metadataUsageDic[Il2CppMetadataUsage.kIl2CppMetadataUsageMethodRef])
+                    AddMetadataUsageMethodRef(json, i.Value, methodDefOrRefAddress + i.Key * 8);
+            }
             else if (il2Cpp.Version > 16 && il2Cpp.Version < 27)
             {
                 foreach (var i in metadata.metadataUsageDic[Il2CppMetadataUsage.kIl2CppMetadataUsageTypeInfo])
@@ -420,6 +448,11 @@ namespace Il2CppDumper
                     sb.Append(HeaderConstants.HeaderV29);
                     break;
                 default:
+                    if (24.5 < il2Cpp.Version && il2Cpp.Version < 26)
+                    {
+                        sb.Append(HeaderConstants.HeaderV242);
+                        break;
+                    }
                     Console.WriteLine($"WARNING: This il2cpp version [{il2Cpp.Version}] does not support generating .h files");
                     return;
             }

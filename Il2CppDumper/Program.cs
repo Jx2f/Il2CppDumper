@@ -122,8 +122,7 @@ namespace Il2CppDumper
         private static bool Init(string il2cppPath, string metadataPath, out Metadata metadata, out Il2Cpp il2Cpp)
         {
             Console.WriteLine("Initializing metadata...");
-            var metadataBytes = File.ReadAllBytes(metadataPath);
-            metadata = new Metadata(new MemoryStream(metadataBytes));
+            metadata = new Metadata(MetadataHelper.DecryptMetadata(metadataPath));
             Console.WriteLine($"Metadata Version: {metadata.Version}");
 
             Console.WriteLine("Initializing il2cpp file...");
@@ -210,7 +209,9 @@ namespace Il2CppDumper
             Console.WriteLine("Searching...");
             try
             {
-                var flag = il2Cpp.PlusSearch(metadata.methodDefs.Count(x => x.methodIndex >= 0), metadata.typeDefs.Length, metadata.imageDefs.Length);
+                bool flag = Il2CppHelper.KhangSearch(il2Cpp, il2cppPath, version, metadata.metadataUsagesCount);
+                if (!flag)
+                    flag = il2Cpp.PlusSearch(metadata.methodDefs.Count(x => x.methodIndex >= 0), metadata.typeDefs.Length, metadata.imageDefs.Length);
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
                     if (!flag && il2Cpp is PE)
